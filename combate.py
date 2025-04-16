@@ -22,77 +22,99 @@ larguraPlSs = 64 #PlSs = PlayerSpritesheet
 alturaPlSs = 64
 playerSpritesheet = pygame.image.load(os.path.join(dirImg, 'personagem_cespada.png')).convert_alpha()
 
-# Classe do player
+import pygame
+
+# Classe que herda de pygame.sprite.Sprite
 class Player(pygame.sprite.Sprite):
-    def __init__(self, x, y):
-        pygame.sprite.Sprite.__init__(self)
-        self.animaRespiracao = []
-        for i in range(2):
-            self.animaRespiracao.append(playerSpritesheet.subsurface((i*larguraPlSs,24*alturaPlSs),(larguraPlSs,alturaPlSs)))
-        self.atual = 0
-        self.image = self.animaRespiracao[self.atual]
-        self.rect = self.image.get_rect(center=(x, y))
-        self.andando = False
-        self.dashando = False
-        self.dashDuracao = 300
-        self.dashUltimoUso = 0
-        self.atacando = False
-        self.ataqueDuracao = 300 # Tempo de recarga entre ataques
-        self.ataqueUltimoUso = 0
-    
-    def dash(self):
-        if not self.dashando:
-            self.dashando = True
-            self.dashUltimoUso = pygame.time.get_ticks() # Marca o tempo de ataque
-            return Dash(self.rect.centerx, self.rect.centery)  # Instancia o dash
-        return None
+    def __init__(self, sprite_sheet):
+        super().__init__()  # Chama o inicializador da classe pai
+        self.sheet = sprite_sheet
+        self.image = pygame.Surface((32, 32), pygame.SRCALPHA)  # A imagem inicial
+        self.rect = self.image.get_rect()  # Obtém o retângulo da imagem para movimentação
+        
 
-    def ataque(self):
-        if not self.atacando:
-            self.atacando = True
-            self.ataqueUltimoUso = pygame.time.get_ticks()
-            return Attack(self.rect.centerx, self.rect.centery) # Cria o ataque
-        return None
+        self.speed = 2  # Velocidade de movimento
+        self.posX = 400  # Posição inicial
+        self.posY = 300
+        self.rect.topleft = (self.posX, self.posY)  # Define a posição inicial
+
+        self.frame_count = 0  # Contador de frames
+        self.sprite_atual = 0  # Contador para alternar entre sprites de animação
+        self.direction = 'DOWN'  # Direção de movimento (cima, baixo, esquerda, direita)
+
+        self.frame_change = 10 #Quantidade de frames até a troca de sprite
+
+        self.nova_direcao = False
+
+        self.run = False
 
     def update(self):
-        if not self.atacando:  # Se não estiver atacando, animação de respiração
-            self.atual += 0.05  # Alterna lentamente entre os frames
-            if self.atual >= len(self.animaRespiracao):
-                self.atual = 0
-            self.image = self.animaRespiracao[int(self.atual)]
+        # Atualiza o contador de frames
+        self.frame_count += 1
+        self.moving = False
 
-        if self.atacando and pygame.time.get_ticks() - self.ataqueUltimoUso > self.ataqueDuracao:
-            self.atacando = False  # Reseta o estado de ataque após a duração
+        if self.direction == 'UP'and self.run == False:
+            self.sheet.action = 0
+            self.rect.y -= self.speed  # Move para cima
+            self.moving = True
+        elif self.direction == 'DOWN'and self.run == False:
+            self.sheet.action = 2
+            self.rect.y += self.speed  # Move para baixo
+            self.moving = True
+        elif self.direction == 'LEFT'and self.run == False:
+            self.sheet.action = 1
+            self.rect.x -= self.speed  # Move para a esquerda
+            self.moving = True
+        elif self.direction == 'RIGHT'and self.run == False:
+            self.sheet.action = 3
+            self.rect.x += self.speed  # Move para a direita
+            self.moving = True
+        elif self.direction == 'UP'and self.run == True:
+            self.sheet.action = 30
+            self.rect.y -= self.speed  # Move para cima
+            self.moving = True
+        elif self.direction == 'DOWN'and self.run == True:
+            self.sheet.action = 32
+            self.rect.y += self.speed  # Move para baixo
+            self.moving = True
+        elif self.direction == 'LEFT'and self.run == True:
+            self.sheet.action = 31
+            self.rect.x -= self.speed  # Move para a esquerda
+            self.moving = True
+        elif self.direction == 'RIGHT'and self.run == True:
+            self.sheet.action = 33
+            self.rect.x += self.speed  # Move para a direita
+            self.moving = True
 
-class Dash(pygame.sprite.Sprite):
-    def __init__(self):
-        pygame.sprite.Sprite.__init__(self)
+            #self.sprite_atual = (self.sprite_atual + 1) % 2
+        # A cada 10 frames, troca de sprite para evitar animação rápida demais
+        if self.moving:
+            if self.frame_count % self.frame_change == 0 or self.nova_direcao == True:  
+                self.sheet.update()
+                self.nova_direcao = False
+        else:
+            if self.sheet.action in [30,31,32,33]:
+                self.sheet.tile_rect = self.sheet.cells[self.sheet.action-30][0]
+            else:
+                self.sheet.tile_rect = self.sheet.cells[self.sheet.action][0]
 
-# Classe do ataque (com animação)
-class Attack(pygame.sprite.Sprite):
-    def __init__(self, x, y):
-        pygame.sprite.Sprite.__init__(self)
-        self.animaAtaque = []
-        for i in range(6):
-            self.animaAtaque.append(playerSpritesheet.subsurface((i*128,29*128),(128,128)))
-        self.atual = 0
-        self.image = self.animaAtaque[self.atual]
-        self.rect = self.image.get_rect(center=(x, y))
-        self.spawn_time = pygame.time.get_ticks()  # Marca o tempo em que o ataque foi criado
-        self.animation_duration = 150  # Duração de cada frame da animação (em milissegundos)
+    def get_sprite(self):
+        rect = pygame.Rect(self.sheet.tile_rect)
+        sprite = pygame.Surface((32,32), pygame.SRCALPHA)
+        sprite.blit(self.sheet.sheet, (0, 0), rect)
 
-    def update(self):
-        # # Atualiza o frame da animação após a duração definida
-        # if pygame.time.get_ticks() - self.spawn_time > self.animation_duration * (self.atual + 1):
-        #     self.atual += 1
-        #     if self.atual < len(self.images):
-        #         self.image = self.images[self.atual]  # Troca para o próximo frame da animação
-        #     else:
-        #         self.kill()  # Remove o ataque após a animação ser concluída
-        self.atual += 0.10  # Alterna lentamente entre os frames
-        if self.atual >= len(self.animaAtaque):
-            self.atual = 0
-        self.image = self.animaAtaque[int(self.atual)]
+    def correr(self):
+        if self.run:
+            self.run = False
+            self.speed = 2
+            self.frame_change = 10
+
+        elif self.run == False:
+            self.run = True
+            self.speed = 4
+            self.frame_change = 5
+
+        return self.run
 
 # Criando o jogador e os grupos de sprites
 player = Player(larguraTela//2, alturaTela//2)
